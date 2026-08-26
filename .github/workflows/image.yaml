@@ -1,0 +1,72 @@
+name: Pull and Publish
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify with Maven
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+  docker:
+    name: Pull Oracle and push to Aliyun
+    needs: verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    env:
+      # Oracle 原始镜像
+      ORACLE_IMAGE: container-registry.oracle.com/database/free:latest
+
+      # 阿里云镜像仓库
+      ALIYUN_REGISTRY: registry.cn-shenzhen.aliyuncs.com
+      ALIYUN_NAMESPACE: koushenhai
+      ALIYUN_REPOSITORY: oracle
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 如果你后面还有自己的 Docker Hub 镜像需要推送，可以保留
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # 登录阿里云镜像仓库
+      - name: Log in to Aliyun Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ALIYUN_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # 拉取 Oracle 镜像
+      - name: Pull Oracle image
+        run: |
+          docker pull $ORACLE_IMAGE
+
+      # 重新打阿里云 Tag
+      - name: Tag Oracle image
+        run: |
+          docker tag \
+            $ORACLE_IMAGE \
+            $ALIYUN_REGISTRY/$ALIYUN_NAMESPACE/$ALIYUN_REPOSITORY:latest
+
+      # 推送到阿里云
+      - name: Push Oracle image to Aliyun
+        run: |
+          docker push \
+            $ALIYUN_REGISTRY/$ALIYUN_NAMESPACE/$ALIYUN_REPOSITORY:latest
