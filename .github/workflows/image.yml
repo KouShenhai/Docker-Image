@@ -2,14 +2,12 @@ name: Pull and Publish
 
 on:
   push:
+    branches: [ "main" ]
   pull_request:
-
-permissions:
-  contents: read
+    branches: [ "main" ]
 
 jobs:
   verify:
-    name: Verify with Maven
     runs-on: ubuntu-latest
 
     steps:
